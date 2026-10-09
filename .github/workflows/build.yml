@@ -4,7 +4,11 @@ name: Build Parrot x eSports APK
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches:
+      - main
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -12,37 +16,88 @@ jobs:
 
     steps:
       - name: Checkout project
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          cache: true
 
-      - name: Extract project ZIP
+      - name: Check and extract ZIP
+        shell: bash
         run: |
+          set -euo pipefail
+
+          if [ ! -f "parrot_x_esports_v1.zip" ]; then
+            echo "ERROR: parrot_x_esports_v1.zip not found."
+            echo "Check the ZIP filename in the repository."
+            exit 1
+          fi
+
+          mkdir -p extracted
           unzip -o parrot_x_esports_v1.zip -d extracted
 
       - name: Locate Flutter project
+        shell: bash
         run: |
-          find extracted -name pubspec.yaml -print
+          set -euo pipefail
+
+          PROJECT_FILE="$(find extracted -type f -name pubspec.yaml -print -quit)"
+
+          if [ -z "$PROJECT_FILE" ]; then
+            echo "ERROR: No pubspec.yaml found in the ZIP."
+            echo "The ZIP must contain a Flutter project."
+            exit 1
+          fi
+
+          PROJECT_DIR="$(dirname "$PROJECT_FILE")"
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
+          echo "Flutter project found at: $PROJECT_DIR"
+          cat "$PROJECT_FILE"
 
       - name: Prepare Android project
+        shell: bash
         run: |
-          PROJECT_DIR="$(dirname "$(find extracted -name pubspec.yaml -print -quit)")"
-          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-          rm -rf "$PROJECT_DIR/android"
-          flutter create "$PROJECT_DIR" --platforms=android
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+
+          if [ ! -d android ]; then
+            flutter create --platforms=android .
+          fi
 
       - name: Get dependencies
-        run: flutter pub get --directory "$PROJECT_DIR"
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+          flutter pub get
 
       - name: Build APK
-        run: flutter build apk --release --project-dir "$PROJECT_DIR"
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+          flutter build apk --release
+
+      - name: Verify APK
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APK="$PROJECT_DIR/build/app/outputs/flutter-apk/app-release.apk"
+
+          if [ ! -f "$APK" ]; then
+            echo "ERROR: APK was not created."
+            exit 1
+          fi
+
+          ls -lh "$APK"
 
       - name: Upload APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: Parrot-x-eSports-APK
-          path: extracted/**/build/app/outputs/flutter-apk/app-release.apk
+          path: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
