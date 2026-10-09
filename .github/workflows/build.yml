@@ -1,3 +1,4 @@
+
 name: Build Parrot x eSports APK
 
 on:
@@ -19,22 +20,29 @@ jobs:
           channel: stable
 
       - name: Extract project ZIP
-        run: unzip -o parrot_x_esports_v1.zip
+        run: |
+          unzip -o parrot_x_esports_v1.zip -d extracted
+
+      - name: Locate Flutter project
+        run: |
+          find extracted -name pubspec.yaml -print
 
       - name: Prepare Android project
-        working-directory: parrot_x_esports
-        run: flutter create . --platforms=android
+        run: |
+          PROJECT_DIR="$(dirname "$(find extracted -name pubspec.yaml -print -quit)")"
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          rm -rf "$PROJECT_DIR/android"
+          flutter create "$PROJECT_DIR" --platforms=android
 
       - name: Get dependencies
-        working-directory: parrot_x_esports
-        run: flutter pub get
+        run: flutter pub get --directory "$PROJECT_DIR"
 
       - name: Build APK
-        working-directory: parrot_x_esports
-        run: flutter build apk --release
+        run: flutter build apk --release --project-dir "$PROJECT_DIR"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Parrot-x-eSports-APK
-          path: parrot_x_esports/build/app/outputs/flutter-apk/app-release.apk
+          path: extracted/**/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
