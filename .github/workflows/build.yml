@@ -1,15 +1,18 @@
-- name: Regenerate Android Platform
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd "$PROJECT_DIR"
+    - name: Regenerate Android Platform
+      shell: bash
+      run: |
+        set -euo pipefail
+        
+        # Agar PROJECT_DIR variable pehle se set nahi hai to current dir use karein
+        cd "${PROJECT_DIR:-.}"
 
-          rm -rf android
+        rm -rf android
 
-          flutter create \
-            --platforms=android \
-            --project-name parrot_x_esports \
-            .
+        flutter create \
+          --platforms=android \
+          --project-name=parrot_x_esports \
+          .
 
-          test -f android/settings.gradle
-          test -f android/app/build.gradle
+        test -f android/settings.gradle
+        test -f android/app/build.gradle
+
