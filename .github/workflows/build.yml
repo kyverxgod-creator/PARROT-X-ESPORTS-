@@ -1,94 +1,15 @@
-name: PARROT X ESPORTS APK Build
-
-on:
-  workflow_dispatch:
-  push:
-    branches:
-      - main
-
-permissions:
-  contents: read
-
-jobs:
-  build:
-    name: Build Android APK
-    runs-on: ubuntu-24.04
-
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-
-      - name: Check ZIP File
+- name: Regenerate Android Platform
         shell: bash
         run: |
-          set -e
-          if [ ! -f "parrot_x_esports_v1.zip" ]; then
-            echo "ERROR: Flutter project ZIP not found!"
-            echo "Upload parrot_x_esports_v1.zip to repository root."
-            exit 1
-          fi
-
-      - name: Extract Flutter Project
-        shell: bash
-        run: |
-          set -e
-          mkdir -p extracted
-          unzip -o parrot_x_esports_v1.zip -d extracted
-
-      - name: Find Flutter Project
-        shell: bash
-        run: |
-          set -e
-          FILE=$(find extracted -type f -name pubspec.yaml -print -quit)
-          if [ -z "$FILE" ]; then
-            echo "ERROR: pubspec.yaml not found."
-            exit 1
-          fi
-          DIR=$(dirname "$FILE")
-          echo "PROJECT_DIR=$DIR" >> "$GITHUB_ENV"
-          echo "Flutter project: $DIR"
-
-      - name: Check Flutter Project
-        shell: bash
-        run: |
-          set -e
+          set -euo pipefail
           cd "$PROJECT_DIR"
-          flutter --version
-          cat pubspec.yaml
 
-      - name: Setup Android Platform
-        shell: bash
-        run: |
-          set -e
-          cd "$PROJECT_DIR"
-          if [ ! -d android ]; then
-            flutter create --platforms=android .
-          fi
+          rm -rf android
 
-      - name: Install Dependencies
-        shell: bash
-        run: |
-          set -e
-          cd "$PROJECT_DIR"
-          flutter pub get
+          flutter create \
+            --platforms=android \
+            --project-name parrot_x_esports \
+            .
 
-      - name: Build Release APK
-        shell: bash
-        run: |
-          set -e
-          cd "$PROJECT_DIR"
-          flutter build apk --release
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: PARROT-X-ESPORTS-APK
-          path: extracted/**/build/app/outputs/flutter-apk/app-release.apk
-          if-no-files-found: error
-          retention-days: 7
+          test -f android/settings.gradle
+          test -f android/app/build.gradle
